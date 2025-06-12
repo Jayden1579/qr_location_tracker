@@ -1,4 +1,4 @@
-# qr_location_tracker/app.py
+# qr_location_tracker/app.py (수정 후)
 
 import os
 import json
@@ -6,8 +6,16 @@ from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
-# 위치 정보를 저장할 JSON 파일 경로
-DATA_FILE = 'location.json'
+# Render Disk는 '/var/data' 경로에 마운트됩니다.
+# 해당 경로에 데이터를 저장해야 영속성이 보장됩니다.
+DATA_DIR = '/var/data'
+DATA_FILE = os.path.join(DATA_DIR, 'location.json')
+
+# 디렉터리가 없으면 생성
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# 카카오 API 키를 환경 변수에서 가져옵니다.
+KAKAO_APP_KEY = os.getenv("KAKAO_APP_KEY")
 
 # 초기 샘플 데이터
 SAMPLE_DATA = {
@@ -40,7 +48,12 @@ def save_location_data(data):
 def index():
     """메인 페이지를 렌더링하고, 현재 저장된 정보를 전달합니다."""
     current_location = load_location_data()
-    return render_template('index.html', data=SAMPLE_DATA, location=current_location)
+    return render_template(
+        'index.html',
+        data=SAMPLE_DATA,
+        location=current_location,
+        kakao_app_key=KAKAO_APP_KEY # 템플릿으로 키 전달
+    )
 
 # 위치 정보 업데이트 라우트
 @app.route('/update_location', methods=['POST'])
@@ -54,11 +67,12 @@ def update_location():
         "lon": request.json['lon'],
         "address": request.json.get('address', '주소 정보 없음') # 주소 정보가 없으면 기본값
     }
-    
+
     save_location_data(new_location_data)
     print(f"[*] 위치 업데이트: {new_location_data['address']}")
     return jsonify({"status": "success", "message": "Location updated successfully"})
 
 if __name__ == '__main__':
     # 외부에서 접속 가능하도록 0.0.0.0으로 호스트 설정
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # debug=True는 Render에서 환경변수로 제어하는 것이 좋습니다.
+    app.run(host='0.0.0.0', port=5000)
