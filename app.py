@@ -1,4 +1,4 @@
-# qr_location_tracker/app.py (수정 후)
+# qr_location_tracker/app.py
 
 import os
 import json
@@ -6,15 +6,12 @@ from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
-# Render Disk는 '/var/data' 경로에 마운트됩니다.
-# 해당 경로에 데이터를 저장해야 영속성이 보장됩니다.
-DATA_DIR = '/var/data'
-DATA_FILE = os.path.join(DATA_DIR, 'location.json')
-
-# 디렉터리가 없으면 생성
-os.makedirs(DATA_DIR, exist_ok=True)
+# 영구 디스크를 사용하지 않으므로, 일반 경로에 파일을 저장합니다.
+# Render의 임시 파일 시스템에 생성되며, 서버 재시작 시 초기화됩니다.
+DATA_FILE = 'location.json'
 
 # 카카오 API 키를 환경 변수에서 가져옵니다.
+# Render 대시보드의 'Environment Variables'에 설정해야 합니다.
 KAKAO_APP_KEY = os.getenv("KAKAO_APP_KEY")
 
 # 초기 샘플 데이터
@@ -47,6 +44,10 @@ def save_location_data(data):
 @app.route('/')
 def index():
     """메인 페이지를 렌더링하고, 현재 저장된 정보를 전달합니다."""
+    if not KAKAO_APP_KEY:
+        # 환경 변수가 설정되지 않았을 경우의 예외 처리
+        return "오류: 카카오 API 키가 서버에 설정되지 않았습니다. 관리자에게 문의하세요.", 500
+
     current_location = load_location_data()
     return render_template(
         'index.html',
@@ -72,7 +73,8 @@ def update_location():
     print(f"[*] 위치 업데이트: {new_location_data['address']}")
     return jsonify({"status": "success", "message": "Location updated successfully"})
 
+# 이 부분은 Gunicorn을 사용할 때는 직접 실행되지 않지만, 로컬 테스트를 위해 유지합니다.
 if __name__ == '__main__':
     # 외부에서 접속 가능하도록 0.0.0.0으로 호스트 설정
-    # debug=True는 Render에서 환경변수로 제어하는 것이 좋습니다.
+    # debug=True는 프로덕션 환경에서는 끄는 것이 좋습니다.
     app.run(host='0.0.0.0', port=5000)
