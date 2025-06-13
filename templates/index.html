@@ -1,109 +1,173 @@
-<!-- index.html 파일의 <script> 태그 부분을 아래 코드로 교체하세요. -->
+<!-- qr_location_tracker/templates/index.html -->
 
-<script>
-    // 1. 카카오맵 API 스크립트를 동적으로 생성하고, 로드 완료 시 실행될 함수를 지정합니다.
-    function loadKakaoMapScript() {
-        const script = document.createElement('script');
-        // 로드가 완료되면 initMap 함수를 실행하도록 콜백을 추가합니다.
-        script.onload = () => kakao.maps.load(initMap);
-        script.src = "//dapi.kakao.com/v2/maps/sdk.js?appkey={{ kakao_app_key }}&libraries=services&autoload=false"; // autoload=false가 중요
-        document.head.appendChild(script);
-    }
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>샘플 정보</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 600px; margin: auto; background-color: #f4f4f9; }
+        .container { background-color: #fff; border: 1px solid #ddd; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        p { margin: 12px 0; color: #555; }
+        strong { min-width: 120px; display: inline-block; color: #000; }
+        hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+        #status { margin-top: 20px; padding: 10px; border-radius: 5px; font-style: italic; color: #333; background-color: #e9ecef; }
+        .error-message { color: #d9534f; font-weight: bold; }
+    </style>
+    <!-- 
+      카카오맵 API 스크립트는 아래 자바스크립트 코드에서 동적으로 로드됩니다.
+      HTML에 직접 <script> 태그를 넣지 않습니다.
+    -->
+</head>
+<body>
+    <div class="container">
+        <h1>샘플 정보</h1>
+        <!-- 
+          템플릿 변수 'data'를 사용하도록 수정되었습니다.
+          app.py에서 'data=SAMPLE_DATA'로 전달해야 합니다.
+        -->
+        <p><strong>샘플 제작일:</strong> {{ data['제작일'] or '정보 없음' }}</p>
+        <p><strong>샘플 제작 사양:</strong> {{ data['제작 사양'] or '정보 없음' }}</p>
+        <p><strong>기본 성능:</strong> {{ data['기본 성능'] or '정보 없음' }}</p>
+        <p><strong>기타:</strong> {{ data['기타'] or '정보 없음' }}</p>
+        
+        <hr>
+        
+        <h2>위치 정보</h2>
+        <!-- 
+          'location' 변수가 존재하고, 'error' 키가 없을 때만 주소를 표시합니다.
+          or '정보 없음'을 추가하여 데이터가 비어있을 때도 안전하게 표시합니다.
+        -->
+        {% if location and not location.error %}
+            <p><strong>마지막 확인 위치:</strong> <span id="location-display">{{ location.address or '기록된 주소 없음' }}</span></p>
+            <p><strong>마지막 확인 시간:</strong> <span id="timestamp-display">{{ location.timestamp or '기록된 시간 없음' }}</span></p>
+        {% else %}
+            <p><strong>마지막 확인 위치:</strong> <span id="location-display">기록된 정보 없음</span></p>
+        {% endif %}
 
-    // 2. 위치 정보를 요청하고 처리하는 핵심 로직
-    function initMap() {
-        console.log("Kakao Map API is loaded. Now getting geolocation.");
-        document.getElementById('status').textContent = "현재 위치를 확인하는 중입니다...";
+        <p id="status">페이지 로딩 중...</p>
+    </div>
 
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(onSuccess, onError, {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
-            });
-        } else {
-            document.getElementById('status').textContent = "이 브라우저는 위치 정보를 지원하지 않습니다.";
+    <script>
+        // 1. 카카오맵 API 스크립트를 동적으로 생성하고, 로드 완료 시 실행될 함수를 지정합니다.
+        function loadKakaoMapScript() {
+            const script = document.createElement('script');
+            // 로드가 완료되면 initMap 함수를 실행하도록 콜백을 추가합니다.
+            script.onload = () => kakao.maps.load(initMap);
+            // autoload=false는 스크립트 로드 후 자동 실행을 막아, 우리가 원하는 시점에 제어할 수 있게 합니다.
+            script.src = "//dapi.kakao.com/v2/maps/sdk.js?appkey={{ kakao_app_key }}&libraries=services&autoload=false";
+            document.head.appendChild(script);
         }
-    }
 
-    // 3. 위치 정보 가져오기 성공 시 (이 함수는 이제 kakao 객체가 보장된 상태에서 호출됨)
-    function onSuccess(position) {
-        const lat = position.coords.latitude;
-        const lon = position.coords.longitude;
-        
-        console.log(`Geolocation success: lat=${lat}, lon=${lon}`);
-        document.getElementById('status').textContent = "위치 확인 완료! 서버에 기록 중...";
-        
-        const geocoder = new kakao.maps.services.Geocoder();
-        const coord = new kakao.maps.LatLng(lat, lon);
-        
-        geocoder.coord2Address(coord.getLng(), coord.getLat(), function(result, status) {
-            let address = "주소 변환 실패";
-            if (status === kakao.maps.services.Status.OK && result.length > 0) {
-                address = result[0].road_address ? result[0].road_address.address_name : result[0].address.address_name;
-                console.log(`Address converted: ${address}`);
+        // 2. 카카오맵 API 로드가 완료된 후, 위치 정보를 요청하고 처리하는 핵심 로직
+        function initMap() {
+            console.log("Kakao Map API is loaded. Now getting geolocation.");
+            document.getElementById('status').textContent = "현재 위치를 확인하는 중입니다...";
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(onSuccess, onError, {
+                    enableHighAccuracy: true, // 높은 정확도 사용
+                    timeout: 10000,           // 10초 타임아웃
+                    maximumAge: 0             // 캐시된 위치 사용 안함
+                });
             } else {
-                console.error("Address conversion failed. Status:", status);
+                document.getElementById('status').textContent = "오류: 이 브라우저는 위치 정보를 지원하지 않습니다.";
+                document.getElementById('status').classList.add('error-message');
             }
+        }
+
+        // 3. 위치 정보 가져오기 성공 시 (이 함수는 이제 kakao 객체가 보장된 상태에서 호출됨)
+        function onSuccess(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
             
-            sendLocationToServer(lat, lon, address);
-        });
-    }
-
-    // 4. 위치 정보 가져오기 실패 시
-    function onError(error) {
-        let message = "";
-        switch(error.code) {
-            case error.PERMISSION_DENIED:
-                message = "위치 정보 접근 권한이 거부되었습니다.";
-                break;
-            case error.POSITION_UNAVAILABLE:
-                message = "현재 위치를 확인할 수 없습니다.";
-                break;
-            case error.TIMEOUT:
-                message = "위치 정보를 가져오는 데 시간이 초과되었습니다.";
-                break;
-            default:
-                message = "알 수 없는 오류가 발생했습니다.";
-                break;
-        }
-        console.error("Geolocation error:", message);
-        document.getElementById('status').textContent = "오류: " + message;
-    }
-
-    // 5. 서버로 위치 정보를 POST 요청으로 보냄
-    async function sendLocationToServer(lat, lon, address) {
-        console.log(`Sending to server: lat=${lat}, lon=${lon}, address=${address}`);
-        try {
-            const response = await fetch('/update_location', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat, lon, address })
+            console.log(`Geolocation success: lat=${lat}, lon=${lon}`);
+            document.getElementById('status').textContent = "위치 확인 완료! 주소 변환 후 서버에 기록합니다...";
+            
+            const geocoder = new kakao.maps.services.Geocoder();
+            const coord = new kakao.maps.LatLng(lat, lon);
+            
+            geocoder.coord2Address(coord.getLng(), coord.getLat(), function(result, status) {
+                let address = "주소를 변환할 수 없습니다.";
+                if (status === kakao.maps.services.Status.OK && result.length > 0) {
+                    address = result[0].road_address ? result[0].road_address.address_name : result[0].address.address_name;
+                    console.log(`Address converted: ${address}`);
+                } else {
+                    console.error("Address conversion failed. Status:", status);
+                }
+                
+                sendLocationToServer(lat, lon, address);
             });
+        }
 
-            const result = await response.json();
-
-            if (response.ok && result.status === 'success') {
-                console.log("Server update successful:", result.location);
-                document.getElementById('status').textContent = "현재 위치가 서버에 성공적으로 기록되었습니다.";
-                document.getElementById('location-display').textContent = address;
-            } else {
-                throw new Error(result.message || 'Unknown server error');
+        // 4. 위치 정보 가져오기 실패 시
+        function onError(error) {
+            let message = "";
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    message = "위치 정보 접근 권한이 거부되었습니다.";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    message = "현재 위치를 확인할 수 없습니다.";
+                    break;
+                case error.TIMEOUT:
+                    message = "위치 정보를 가져오는 데 시간이 초과되었습니다.";
+                    break;
+                default:
+                    message = "알 수 없는 오류가 발생했습니다.";
+                    break;
             }
-        } catch (err) {
-            console.error("Failed to send location to server:", err);
-            document.getElementById('status').textContent = "서버에 위치를 기록하는 데 실패했습니다.";
+            console.error("Geolocation error:", message);
+            const statusElem = document.getElementById('status');
+            statusElem.textContent = "오류: " + message;
+            statusElem.classList.add('error-message');
         }
-    }
 
-    // 페이지가 로드되면 스크립트 로딩을 시작합니다.
-    window.onload = function() {
-        const kakaoAppKey = "{{ kakao_app_key }}";
-        if (!kakaoAppKey) {
-            document.getElementById('status').textContent = "오류: 카카오 API 키가 설정되지 않았습니다.";
-            console.error("Kakao App Key is missing.");
-            return;
+        // 5. 서버로 위치 정보를 POST 요청으로 보냄
+        async function sendLocationToServer(lat, lon, address) {
+            console.log(`Sending to server: lat=${lat}, lon=${lon}, address=${address}`);
+            try {
+                const response = await fetch('/update_location', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lat, lon, address })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.status === 'success') {
+                    console.log("Server update successful:", result.location);
+                    document.getElementById('status').textContent = "현재 위치가 서버에 성공적으로 기록되었습니다.";
+                    // 화면의 주소와 시간을 새로고침 없이 즉시 업데이트
+                    document.getElementById('location-display').textContent = result.location.address;
+                    document.getElementById('timestamp-display').textContent = new Date(result.location.timestamp).toLocaleString('ko-KR');
+                } else {
+                    throw new Error(result.message || '알 수 없는 서버 오류');
+                }
+            } catch (err) {
+                console.error("Failed to send location to server:", err);
+                const statusElem = document.getElementById('status');
+                statusElem.textContent = "서버에 위치를 기록하는 데 실패했습니다. (" + err.message + ")";
+                statusElem.classList.add('error-message');
+            }
         }
-        loadKakaoMapScript();
-    };
-</script>
+
+        // 페이지가 로드되면 모든 프로세스를 시작합니다.
+        window.onload = function() {
+            // app.py에서 전달된 kakao_app_key가 있는지 확인합니다.
+            const kakaoAppKey = "{{ kakao_app_key }}";
+            if (!kakaoAppKey || kakaoAppKey === "None") {
+                const statusElem = document.getElementById('status');
+                statusElem.textContent = "오류: 카카오 API 키가 설정되지 않았습니다. 관리자에게 문의하세요.";
+                statusElem.classList.add('error-message');
+                console.error("Kakao App Key is missing or invalid.");
+                return;
+            }
+            // 모든 준비가 되었으니, 카카오맵 스크립트 로딩을 시작합니다.
+            loadKakaoMapScript();
+        };
+    </script>
+</body>
+</html>
